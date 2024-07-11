@@ -1,0 +1,6 @@
+{
+    "name": "LuauLSP-datamodel",
+    "tree": {
+      "$path": "src/plugin"
+    }
+  }
