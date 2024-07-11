@@ -2,6 +2,7 @@
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Selection = game:GetService("Selection")
 
 assert(plugin, "This code must run inside of a plugin")
 local toolbar = plugin:CreateToolbar("LLS Datamodel") :: PluginToolbar
@@ -107,9 +108,7 @@ end
 
 local function sendDataModelInfo()
 	local instances = {}
-	local body = HttpService:JSONEncode({
-		tree = encodeInstance(game, filterServices, instances)
-	})
+	local body = HttpService:JSONEncode(encodeInstance(game, filterServices, instances))
 
 	local size = getSize(body)
 
@@ -138,12 +137,6 @@ local function makeConnection()
 		print("LLS: Connected to local server")
 		print(`LLS: Payload with size of {size} was successfully sent`)
 		connected = true
-
-		for _, instance in instances do
-			table.insert(connections, instance:GetPropertyChangedSignal("Name"):Connect(function() 
-				requestSend = true
-			end))
-		end
 
 		for _, instance in INCLUDED_SERVICES do
 			table.insert(connections, instance.DescendantAdded:Connect(function() 
@@ -199,24 +192,25 @@ RunService.Heartbeat:Connect(function()
 		lastRequestSend = nowClock
 		local success, result, size, instances = sendDataModelInfo()
 		print(`LLS: Payload with size of {size} was successfully sent`)
-		for _, connection in connections do
-			connection:Disconnect()
-		end
-		table.clear(connections)
-		for _, instance in instances do
-			table.insert(connections, instance:GetPropertyChangedSignal("Name"):Connect(function() 
-				requestSend = true
-			end))
-		end
+	end
+end)
 
-		for _, instance in INCLUDED_SERVICES do
-			table.insert(connections, instance.DescendantAdded:Connect(function() 
-				requestSend = true
-			end))
-			table.insert(connections, instance.DescendantRemoving:Connect(function() 
-				requestSend = true
-			end))
+local selectionConnections = {}
+
+Selection.SelectionChanged:Connect(function()
+	local selections = Selection:Get()
+
+	for selection, connection in selectionConnections do
+		if not table.find(selections, selection) then
+			local index = table.find(selectionConnections, selection)
+			if index then table.remove(selectionConnections, index) end
 		end
-		print(`LLS: Established {#connections} connections`)
+	end
+	for _, selection in selections do
+		if not selectionConnections[selection] then
+			selectionConnections[selection] = selection:GetPropertyChangedSignal("Name"):Connect(function() 
+				requestSend = true
+			end)
+		end
 	end
 end)
