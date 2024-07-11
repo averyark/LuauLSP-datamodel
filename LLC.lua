@@ -1,0 +1,254 @@
+--!nonstrict
+local HttpService = game:GetService("HttpService")
+assert(plugin, "This code must run inside of a plugin")
+
+local toolbar = plugin:CreateToolbar("Luau") :: PluginToolbar
+local button = toolbar:CreateButton(
+	"Luau Language Server Setup",
+	"Toggle Menu",
+	"rbxassetid://11115506617",
+	"Luau Language Server"
+) :: PluginToolbarButton
+
+local widgetInfo = DockWidgetPluginGuiInfo.new(
+	-- widget info
+	Enum.InitialDockState.Float,
+	false,
+	false,
+	300,
+	200,
+	120,
+	70
+)
+
+local ConnectAction = plugin:CreatePluginAction(
+	"Luau Language Server Connect",
+	"Connect",
+	"Connects to Luau Language Server",
+	"rbxassetid://11115506617",
+	true
+)
+
+local widget = plugin:CreateDockWidgetPluginGui("Luau Language Server", widgetInfo)
+widget.Title = "Luau Language Server"
+button.ClickableWhenViewportHidden = true
+
+local port = plugin:GetSetting("Port") or 3667
+local connected: BoolValue = Instance.new("BoolValue")
+local connections = {}
+
+local INCLUDED_SERVICES = {
+	game:GetService("Workspace"),
+	--game:GetService("Players"),
+	game:GetService("Lighting"),
+	--game:GetService("ReplicatedFirst"),
+	game:GetService("ReplicatedStorage"),
+	game:GetService("ServerScriptService"),
+	--game:GetService("ServerStorage"),
+	game:GetService("StarterGui"),
+	--game:GetService("StarterPack"),
+	game:GetService("StarterPlayer"),
+	game:GetService("SoundService"),
+	game:GetService("Chat"),
+	game:GetService("LocalizationService"),
+	--game:GetService("TestService"),
+}
+
+type EncodedInstance = {
+	name: string,
+	className: string,
+	children: { EncodedInstance },
+}
+
+local syncButton
+
+local function filterServices(child: Instance): boolean
+	return not not table.find(INCLUDED_SERVICES, child)
+end
+
+local function encodeInstance(instance: Instance, childFilter: ((Instance) -> boolean)?): EncodedInstance
+	local encoded = {}
+	encoded.name = instance.Name
+	encoded.className = instance.ClassName
+	encoded.children = {}
+
+	for _, child in instance:GetChildren() do
+		if childFilter and not childFilter(child) then
+			continue
+		end
+
+		table.insert(encoded.children, encodeInstance(child))
+	end
+	
+	return encoded
+end
+
+local function cleanup()
+	for _, connection in pairs(connections) do
+		connection:Disconnect()
+	end
+	connected.Value = false
+end
+
+local function sendFullDMInfo()
+	local tree = encodeInstance(game, filterServices)
+
+	local success, result = pcall(HttpService.RequestAsync, HttpService, {
+		Method = "POST",
+		Url = string.format("http://localhost:%s/full", port),
+		Headers = {
+			["Content-Type"] = "application/json",
+		},
+		Body = HttpService:JSONEncode({
+			tree = tree,
+		}),
+	})
+
+	if not success then
+		warn("[Luau Language Server] Connecting to server failed: " .. result)
+		connected.Value = false
+	elseif not result.Success then
+		warn("[Luau Language Server] Sending full DM info failed: " .. result.StatusCode .. ": " .. result.Body)
+		connected.Value = false
+	else
+		print("[Luau Language Server] DataModel synced")
+		connected.Value = true
+	end
+end
+
+local function watchChanges()
+	if connected.Value or port == nil then
+		return
+	end
+	cleanup()
+
+	-- TODO: we should only send delta info if possible
+	--[[local function descendantChanged(instance: Instance)
+		for _, service in INCLUDED_SERVICES do
+			if instance:IsDescendantOf(service) then
+				sendFullDMInfo()
+				return
+			end
+		end
+	end
+	table.insert(connections, game.DescendantAdded:Connect(descendantChanged))
+	table.insert(connections, game.DescendantRemoving:Connect(descendantChanged))]]
+	syncButton.Visible = true
+
+	sendFullDMInfo()
+end
+
+function connectServer()
+	if connected.Value then
+		print("[Luau Language Server] Disconnecting from DataModel changes")
+		cleanup()
+	else
+		print("[Luau Language Server] Connecting to server")
+		watchChanges()
+	end
+end
+
+
+
+function sync()
+	if connected.Value == true and port ~= nil then
+		sendFullDMInfo()
+	end
+end
+
+-- Interface
+local theme = settings().Studio.Theme :: StudioTheme
+local frame = Instance.new("Frame")
+frame.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainBackground)
+frame.Size = UDim2.fromScale(1, 1)
+frame.Parent = widget
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = frame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 5)
+padding.PaddingBottom = UDim.new(0, 5)
+padding.PaddingLeft = UDim.new(0, 5)
+padding.PaddingRight = UDim.new(0, 5)
+padding.Parent = frame
+
+local portTextBox = Instance.new("TextBox")
+portTextBox.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBackground)
+portTextBox.BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.InputFieldBorder)
+portTextBox.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainText)
+portTextBox.PlaceholderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.SubText)
+portTextBox.PlaceholderText = "Port"
+portTextBox.Text = port
+portTextBox.TextSize = 20
+portTextBox.Size = UDim2.new(1, 0, 0, 30)
+portTextBox.LayoutOrder = 0
+portTextBox.Parent = frame
+portTextBox.ClearTextOnFocus = false
+portTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+	portTextBox.Text = portTextBox.Text:gsub("%D+", ""):sub(1, 5)
+	port = tonumber(portTextBox.Text)
+	plugin:SetSetting("Port", port)
+end)
+
+local connectButton = Instance.new("TextButton")
+connectButton.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainButton)
+connectButton.BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.ButtonBorder)
+connectButton.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.ButtonText)
+connectButton.Text = if connected.Value then "Disconnect" else "Connect"
+connectButton.TextSize = 16
+connectButton.Size = UDim2.new(1, 0, 0, 25)
+connectButton.LayoutOrder = 1
+connectButton.Parent = frame
+connectButton.Activated:Connect(connectServer)
+
+syncButton = Instance.new("TextButton")
+syncButton.BackgroundColor3 = theme:GetColor(Enum.StudioStyleGuideColor.MainButton)
+syncButton.BorderColor3 = theme:GetColor(Enum.StudioStyleGuideColor.ButtonBorder)
+syncButton.TextColor3 = theme:GetColor(Enum.StudioStyleGuideColor.ButtonText)
+syncButton.Text = "Sync"
+syncButton.TextSize = 16
+syncButton.Size = UDim2.new(1, 0, 0, 25)
+syncButton.LayoutOrder = 1
+syncButton.Parent = frame
+syncButton.Activated:Connect(sync)
+syncButton.Visible = false
+
+connected.Changed:Connect(function()
+	connectButton.Text = if connected.Value then "Disconnect" else "Connect"
+	button.Icon = if connected.Value then "rbxassetid://11116536087" else "rbxassetid://11115506617"
+end)
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 2)
+corner.Parent = portTextBox
+
+local corner2 = Instance.new("UICorner")
+corner2.CornerRadius = UDim.new(0, 2)
+corner2.Parent = connectButton
+
+button.Click:Connect(function()
+	--widget.Enabled = not widget.Enabled
+	local tree = encodeInstance(game, filterServices)
+	
+	local success, result = pcall(HttpService.RequestAsync, HttpService, {
+		Method = "POST",
+		Url = string.format("http://localhost:%s/full", "3669"),
+		Headers = {
+			["Content-Type"] = "application/json",
+		},
+		Body = HttpService:JSONEncode(tree),
+	})
+
+
+	print(success, result)
+	print(tree)
+end)
+
+widget:GetPropertyChangedSignal("Enabled"):Connect(function()
+	button:SetActive(widget.Enabled)
+end)
+
+ConnectAction.Triggered:Connect(connectServer)
