@@ -40,7 +40,7 @@ def get_path_str_from_path_list(path_keys):
         if path_str == "":
             path_str = key
             continue
-        path_str = path_str + "\\" + key
+        path_str = path_str + "/" + key
     
     return path_str
 
@@ -93,16 +93,16 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                 keys = pair[1]
             
             filePath = get_path_str_from_path_list(keys)
-            hasLuaExtensionInit = os.path.exists(filePath + "\\init.lua")
-            hasLuauExtensionInit = os.path.exists(filePath + "\\init.luau")
+            hasLuaExtensionInit = os.path.exists(filePath + "/init.lua")
+            hasLuauExtensionInit = os.path.exists(filePath + "/init.luau")
             if os.path.isdir(filePath):
                 if hasLuaExtensionInit:
                     if hasLuauExtensionInit:
                         print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
 
-                    value["filePaths"] = [filePath + "\\init.lua"]
+                    value["filePaths"] = [filePath + "/init.lua"]
                 elif hasLuauExtensionInit:
-                    value["filePaths"] = [filePath + "\\init.luau"]
+                    value["filePaths"] = [filePath + "/init.luau"]
 
             add_reference_for_scripts(value, referenceCache, newPathKeys, len(pathKeys))
             continue
@@ -133,18 +133,18 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                 value["filePaths"] = [filePath + ".luau"]
             elif os.path.isdir(filePath):
                 # find init file
-                hasLuaExtensionInit = os.path.exists(filePath + "\\init.lua")
-                hasLuauExtensionInit = os.path.exists(filePath + "\\init.luau")
+                hasLuaExtensionInit = os.path.exists(filePath + "/init.lua")
+                hasLuauExtensionInit = os.path.exists(filePath + "/init.luau")
 
                 if hasLuaExtensionInit:
                     if hasLuauExtensionInit:
                         print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
 
-                    value["filePaths"] = [filePath + "\\init.lua"]
+                    value["filePaths"] = [filePath + "/init.lua"]
                 elif hasLuauExtensionInit:
-                    value["filePaths"] = [filePath + "\\init.luau"]
+                    value["filePaths"] = [filePath + "/init.luau"]
                 else:
-                    projectFilePath = filePath + "\\default.project.json"
+                    projectFilePath = filePath + "/default.project.json"
 
                     if not os.path.exists(projectFilePath):
                         print(f"{bcolors.WARNING}WARN{bcolors.ENDC} No project file found for path: {projectFilePath}")
@@ -154,17 +154,17 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                         projectFile = json.loads(file.read())
 
                         folderPath = projectFile["tree"]["$path"]
-                        newPath = filePath + "\\" + folderPath
-                        folderHasLuaExtensionInit = os.path.exists(newPath + "\\init.lua")
-                        folderHasLuauExtensionInit = os.path.exists(newPath + "\\init.luau")
+                        newPath = filePath + "/" + folderPath
+                        folderHasLuaExtensionInit = os.path.exists(newPath + "/init.lua")
+                        folderHasLuauExtensionInit = os.path.exists(newPath + "/init.luau")
 
                         if folderHasLuaExtensionInit:
                             if folderHasLuauExtensionInit:
                                 print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
 
-                            value["filePaths"] = [newPath + "\\init.lua"]
+                            value["filePaths"] = [newPath + "/init.lua"]
                         elif folderHasLuauExtensionInit:
-                            value["filePaths"] = [newPath + "\\init.luau"]
+                            value["filePaths"] = [newPath + "/init.luau"]
 
             add_reference_for_scripts(value, referenceCache, newPathKeys, upperPathKeyIndex)
             
