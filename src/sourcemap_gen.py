@@ -135,6 +135,11 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                 # find init file
                 hasLuaExtensionInit = os.path.exists(filePath + "/init.lua")
                 hasLuauExtensionInit = os.path.exists(filePath + "/init.luau")
+                hasLuaExtensionClientInit = os.path.exists(filePath + "/init.client.lua")
+                hasLuaExtensionServerInit = os.path.exists(filePath + "/init.server.lua")
+                hasLuauExtensionClientInit = os.path.exists(filePath + "/init.client.luau")
+                hasLuauExtensionServerInit = os.path.exists(filePath + "/init.server.luau")
+
 
                 if hasLuaExtensionInit:
                     if hasLuauExtensionInit:
@@ -143,6 +148,20 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                     value["filePaths"] = [filePath + "/init.lua"]
                 elif hasLuauExtensionInit:
                     value["filePaths"] = [filePath + "/init.luau"]
+                elif hasLuaExtensionClientInit:
+                    if hasLuauExtensionClientInit:
+                        print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
+                    
+                    value["filePaths"] = [filePath + "/init.client.lua"]
+                elif hasLuauExtensionClientInit:
+                    value["filePaths"] = [filePath + "/init.client.luau"]
+                elif hasLuaExtensionServerInit:
+                    if hasLuauExtensionServerInit:
+                        print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
+                    
+                    value["filePaths"] = [filePath + "/init.server.lua"]
+                elif hasLuauExtensionServerInit:
+                    value["filePaths"] = [filePath + "/init.server.luau"]
                 else:
                     projectFilePath = filePath + "/default.project.json"
 
@@ -157,6 +176,10 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                         newPath = filePath + "/" + folderPath
                         folderHasLuaExtensionInit = os.path.exists(newPath + "/init.lua")
                         folderHasLuauExtensionInit = os.path.exists(newPath + "/init.luau")
+                        folderHasLuaExtensionClientInit = os.path.exists(newPath + "/init.client.lua")
+                        folderHasLuaExtensionServerInit = os.path.exists(newPath + "/init.server.lua")
+                        folderHasLuauExtensionClientInit = os.path.exists(newPath + "/init.client.luau")
+                        folderHasLuauExtensionServerInit = os.path.exists(newPath + "/init.server.luau")
 
                         if folderHasLuaExtensionInit:
                             if folderHasLuauExtensionInit:
@@ -165,12 +188,27 @@ def add_reference_for_scripts(sourcemap: dict, referenceCache, pathKeys=[], uppe
                             value["filePaths"] = [newPath + "/init.lua"]
                         elif folderHasLuauExtensionInit:
                             value["filePaths"] = [newPath + "/init.luau"]
+                        elif folderHasLuaExtensionClientInit:
+                            if folderHasLuauExtensionClientInit:
+                                print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
+                            
+                            value["filePaths"] = [filePath + "/init.client.lua"]
+                        elif folderHasLuauExtensionClientInit:
+                            value["filePaths"] = [filePath + "/init.client.luau"]
+                        elif folderHasLuaExtensionServerInit:
+                            if folderHasLuauExtensionServerInit:
+                                print(f"{bcolors.WARNING}WARN{bcolors.ENDC} Name conflict: the name {pathKeys[-1]} used for init.lua and init.luau, fallback to init.lua")
+                            
+                            value["filePaths"] = [filePath + "/init.server.lua"]
+                        elif folderHasLuauExtensionServerInit:
+                            value["filePaths"] = [filePath + "/init.server.luau"]
 
             add_reference_for_scripts(value, referenceCache, newPathKeys, upperPathKeyIndex)
             
 
 def generate_sourcemap(sourcemap: str):
     # loads into json
+    
     with open(ROJO_PROJECT_FILE_PATH, "r") as file:
         projectFile = json.loads(file.read())
 
